@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cell Parts Match</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: slide-label feel. A slim control bar on top, then terms on the left and definitions on the right (stacked on phones). */
+:root {
+  --bg: #F3F4F9;
+  --surface: #FFFFFF;
+  --fg: #1C2033;
+  --muted: #5C637E;
+  --line: #D4D8E8;
+  --accent: #5A3E9B;
+  --accent-soft: #E9E3F6;
+  --good: #1F7A4D;
+  --good-soft: #DDF1E6;
+  --bad: #B3304F;
+  --bad-soft: #F9E0E6;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14162A; --surface: #1D2040; --fg: #ECEEF8; --muted: #A3A9C6; --line: #343965;
+    --accent: #B79CF2; --accent-soft: #2E2858; --good: #6FD3A0; --good-soft: #1B3A2D;
+    --bad: #FF8FA8; --bad-soft: #4A2230; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14162A; --surface: #1D2040; --fg: #ECEEF8; --muted: #A3A9C6; --line: #343965;
+  --accent: #B79CF2; --accent-soft: #2E2858; --good: #6FD3A0; --good-soft: #1B3A2D;
+  --bad: #FF8FA8; --bad-soft: #4A2230; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+:root { color-scheme: light; }
+body { margin: 0; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  padding-block: 24px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(1.7rem, 4vw, 2.3rem); line-height: 1.05; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.sub { color: var(--muted); margin: 6px 0 0; max-width: 46ch; }
+.size { display: flex; flex-direction: column; gap: 6px; }
+.label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: transparent; color: var(--fg); font: inherit; font-weight: 500; padding: 8px 14px; cursor: pointer; min-width: 52px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.seg button:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; padding: 12px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; font-variant-numeric: tabular-nums; }
+.stat { display: flex; gap: 8px; align-items: baseline; }
+.stat b { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; }
+.bar { flex: 1 1 140px; height: 8px; background: var(--accent-soft); border-radius: 4px; overflow: hidden; min-width: 100px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s ease; }
+/* Wide gap on desktop leaves room for the match lines between the columns. */
+.board { position: relative; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px 64px; align-items: start; }
+.col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.lines { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
+.lines path { fill: none; stroke: var(--good); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.lines circle { fill: var(--good); }
+.lines path.draw { stroke-dasharray: 1; animation: draw .45s ease-out both; }
+.lines circle.draw { animation: pop .3s ease-out both; }
+@keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes pop { from { opacity: 0; } to { opacity: 1; } }
+.item {
+  text-align: left; font: inherit; color: var(--fg); background: var(--surface);
+  border: 1.5px solid var(--line); border-radius: 6px; padding: 11px 14px; cursor: pointer; width: 100%;
+  transition: border-color .12s, background .12s, transform .12s;
+}
+.item:hover:not(:disabled) { border-color: var(--accent); }
+.item:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.term { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; }
+.def { font-size: 14.5px; }
+.item[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.item.done { background: var(--good-soft); border-color: var(--good); color: var(--fg); cursor: default; }
+.item.done::after { content: "  ✓"; color: var(--good); font-weight: 700; }
+.item.wrong { background: var(--bad-soft); border-color: var(--bad); animation: nudge .35s; }
+@keyframes nudge { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) {
+  .item.wrong { animation: none; } .bar i { transition: none; }
+  .lines path.draw, .lines circle.draw { animation: none; }
+}
+.result { display: none; padding: 20px; background: var(--surface); border: 1.5px solid var(--good); border-radius: 6px; flex-direction: column; gap: 12px; }
+.result.show { display: flex; }
+.result h2 { font-family: var(--font-display); margin: 0; font-size: 1.5rem; }
+.result p { margin: 0; color: var(--muted); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { font: inherit; font-weight: 600; padding: 10px 16px; border-radius: 6px; border: 1.5px solid var(--accent); background: var(--accent); color: var(--surface); cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+/* Stacked: lines run down a narrow gutter on the left edge of the board. */
+@media (max-width: 640px) { .board { grid-template-columns: 1fr; padding-left: 14px; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Cell Parts Match</h1>
+      <p class="sub">Tap a cell part, then tap the definition that fits it. Matches lock in green and get joined by a line.</p>
+    </div>
+    <div class="size">
+      <span class="label" id="sizeLabel">Terms per round</span>
+      <div class="seg" role="group" aria-labelledby="sizeLabel" id="sizeSeg">
+        <button type="button" data-n="6" aria-pressed="true">6</button>
+        <button type="button" data-n="9" aria-pressed="false">9</button>
+        <button type="button" data-n="17" aria-pressed="false">All 17</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="stats" aria-live="polite">
+    <div class="stat"><b id="sMatched">0/6</b><span class="label">matched</span></div>
+    <div class="stat"><b id="sMiss">0</b><span class="label">misses</span></div>
+    <div class="stat"><b id="sTime">0:00</b><span class="label">time</span></div>
+    <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+  </div>
+
+  <div class="result" id="result" role="status">
+    <h2 id="rTitle">Round complete</h2>
+    <p id="rText"></p>
+    <div class="actions">
+      <button type="button" class="btn" id="nextBtn">Next round</button>
+      <button type="button" class="btn ghost" id="missBtn" hidden>Redo missed terms</button>
+      <button type="button" class="btn ghost" id="againBtn">Reshuffle this round</button>
+    </div>
+  </div>
+
+  <main class="board" id="board">
+    <svg class="lines" id="lines" aria-hidden="true" focusable="false"></svg>
+    <div class="col" id="terms" aria-label="Terms"></div>
+    <div class="col" id="defs" aria-label="Definitions"></div>
+  </main>
+</div>
+
+<script>
+(function () {
+  var DATA = [
+    ["Chloroplast", "Uses sunlight to make sugar; found only in plant cells"],
+    ["Cilia and flagella", "Made up of microtubules"],
+    ["Centrioles", "Cylindrical tubes meant for cell division"],
+    ["Cytoplasm", "Jelly-like substance that contains dissolved building blocks"],
+    ["Nucleolus", "Makes ribosomes inside the nucleus"],
+    ["Lysosomes", "Contain digestive enzymes and degrade cell parts"],
+    ["Vesicles", "Small membrane bubbles that transport molecules around and out of the cell"],
+    ["Cell wall", "Strong, nonliving layer that surrounds and protects plant cells"],
+    ["Nucleus", "Control center of the cell"],
+    ["Mitochondria", "Bean-shaped; the powerhouse of the cell"],
+    ["Cytoskeleton", "Flexible network of proteins that provides structural support for the cell"],
+    ["Cell membrane", "Surrounds the cell and acts like a boundary"],
+    ["Golgi apparatus", "Stacked layers of membranes that sort, package, and deliver proteins"],
+    ["Rough endoplasmic reticulum", "Network of thin folded membranes that help modify and produce proteins and lipids"],
+    ["Ribosomes", "Found in the cytoplasm or ER; make proteins"],
+    ["Smooth endoplasmic reticulum", "Creates lipids and breaks down toxins"],
+    ["Vacuole", "Sacs that store materials for the cell; support cell structure inside plant cells"]
+  ].map(function (d, i) { return { id: i, term: d[0], def: d[1] }; });
+
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var size = 6, deck = [], round = [], matched = {}, matchOrder = [], missedIds = {}, misses = 0;
+  var selT = null, selD = null, timer = null, startAt = 0, elapsed = 0, locked = false;
+
+  var $ = function (id) { return document.getElementById(id); };
+  function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function fmt(s) { return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2); }
+
+  function draw(n) {
+    var out = [];
+    while (out.length < n) {
+      if (!deck.length) deck = shuffle(DATA);
+      var next = deck.shift();
+      if (!out.some(function (x) { return x.id === next.id; })) out.push(next);
+    }
+    return out;
+  }
+
+  function startRound(items) {
+    round = items; matched = {}; matchOrder = []; missedIds = {}; misses = 0; selT = selD = null; locked = false;
+    clearInterval(timer); timer = null; elapsed = 0;
+    $("result").classList.remove("show");
+    render(); stats(); drawLines();
+  }
+
+  function render() {
+    var t = $("terms"), d = $("defs");
+    t.innerHTML = ""; d.innerHTML = "";
+    shuffle(round).forEach(function (x) { t.appendChild(btn(x, "term")); });
+    shuffle(round).forEach(function (x) { d.appendChild(btn(x, "def")); });
+  }
+
+  function btn(x, kind) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "item " + kind; b.dataset.id = x.id; b.dataset.kind = kind;
+    b.setAttribute("aria-pressed", "false");
+    b.textContent = kind === "term" ? x.term : x.def;
+    b.addEventListener("click", function () { pick(x.id, kind, b); });
+    return b;
+  }
+
+  function el(id, kind) { return document.querySelector('.item[data-id="' + id + '"][data-kind="' + kind + '"]'); }
+
+  function pick(id, kind, b) {
+    if (locked || matched[id]) return;
+    if (!timer) { startAt = Date.now() - elapsed * 1000; timer = setInterval(tick, 500); }
+    var cur = kind === "term" ? selT : selD;
+    if (cur !== null) el(cur, kind).setAttribute("aria-pressed", "false");
+    if (cur === id) { if (kind === "term") selT = null; else selD = null; return; }
+    if (kind === "term") selT = id; else selD = id;
+    b.setAttribute("aria-pressed", "true");
+    if (selT !== null && selD !== null) check();
+  }
+
+  function check() {
+    var t = selT, d = selD, tb = el(t, "term"), db = el(d, "def");
+    selT = selD = null;
+    if (t === d) {
+      matched[t] = true; matchOrder.push(t);
+      [tb, db].forEach(function (b) { b.setAttribute("aria-pressed", "false"); b.classList.add("done"); b.disabled = true; });
+      drawLines(t);
+      stats();
+      if (Object.keys(matched).length === round.length) finish();
+    } else {
+      misses++; missedIds[t] = true; locked = true;
+      [tb, db].forEach(function (b) { b.classList.add("wrong"); });
+      stats();
+      setTimeout(function () {
+        [tb, db].forEach(function (b) { b.classList.remove("wrong"); b.setAttribute("aria-pressed", "false"); });
+        locked = false;
+      }, 550);
+    }
+  }
+
+  /* Join every matched term/definition pair with a line. Rebuilt from layout each time so it
+     survives resizes; only the newest pair (animateId) gets the draw-in animation. */
+  function mk(name, attrs, cls) {
+    var n = document.createElementNS(SVGNS, name);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    if (cls) n.setAttribute("class", cls);
+    return n;
+  }
+
+  function drawLines(animateId) {
+    var svg = $("lines"), br = $("board").getBoundingClientRect();
+    svg.innerHTML = "";
+    svg.setAttribute("width", br.width); svg.setAttribute("height", br.height);
+    matchOrder.forEach(function (id, k) {
+      var tb = el(id, "term"), db = el(id, "def");
+      if (!tb || !db) return;
+      var tr = tb.getBoundingClientRect(), dr = db.getBoundingClientRect();
+      var ty = tr.top + tr.height / 2 - br.top, dy = dr.top + dr.height / 2 - br.top;
+      var x1, x2, d, cls = id === animateId ? "draw" : "";
+      if (dr.left >= tr.right) {            // side by side: smooth curve across the gap
+        x1 = tr.right - br.left; x2 = dr.left - br.left;
+        var mid = (x1 + x2) / 2;
+        d = "M" + x1 + " " + ty + " C" + mid + " " + ty + " " + mid + " " + dy + " " + x2 + " " + dy;
+      } else {                              // stacked: down the left gutter
+        x1 = tr.left - br.left; x2 = dr.left - br.left;
+        var gx = 2 + (k % 4) * 3;
+        d = "M" + x1 + " " + ty + " H" + gx + " V" + dy + " H" + x2;
+      }
+      svg.appendChild(mk("path", { d: d, pathLength: 1 }, cls));
+      svg.appendChild(mk("circle", { cx: x1, cy: ty, r: 3.5 }, cls));
+      svg.appendChild(mk("circle", { cx: x2, cy: dy, r: 3.5 }, cls));
+    });
+  }
+
+  function tick() { elapsed = Math.round((Date.now() - startAt) / 1000); $("sTime").textContent = fmt(elapsed); }
+
+  function stats() {
+    var m = Object.keys(matched).length;
+    $("sMatched").textContent = m + "/" + round.length;
+    $("sMiss").textContent = misses;
+    $("sTime").textContent = fmt(elapsed);
+    $("bar").style.width = (m / round.length * 100) + "%";
+  }
+
+  function finish() {
+    clearInterval(timer); timer = null; tick();
+    var ids = Object.keys(missedIds);
+    var perfect = ids.length === 0;
+    $("rTitle").textContent = perfect ? "Clean sweep" : "Round complete";
+    $("rText").textContent = round.length + " matched in " + fmt(elapsed) + " with " + misses + (misses === 1 ? " miss." : " misses.") +
+      (perfect ? "" : " Review: " + ids.map(function (i) { return DATA[i].term; }).join(", ") + ".");
+    $("missBtn").hidden = perfect;
+    $("result").classList.add("show");
+    $("result").scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+
+  $("nextBtn").addEventListener("click", function () { startRound(draw(size)); });
+  $("againBtn").addEventListener("click", function () { startRound(round.slice()); });
+  $("missBtn").addEventListener("click", function () {
+    var ids = Object.keys(missedIds).map(Number);
+    startRound(DATA.filter(function (x) { return ids.indexOf(x.id) > -1; }));
+  });
+  $("sizeSeg").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    size = parseInt(b.dataset.n, 10);
+    Array.prototype.forEach.call($("sizeSeg").children, function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+    startRound(draw(size));
+  });
+
+  // Keep lines aligned when the layout shifts (resize, rotate, web fonts loading in).
+  if (window.ResizeObserver) new ResizeObserver(function () { drawLines(); }).observe($("board"));
+  else window.addEventListener("resize", function () { drawLines(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { drawLines(); });
+
+  startRound(draw(size));
+})();
+</script>
+
+</body>
+</html>
